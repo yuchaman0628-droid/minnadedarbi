@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>みんなでダービー - 筐体完全再現＆コーナー曲がるレース版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Arcade Digital Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&family=M+PLUS+Rounded+1c:wght@700;900&family=VT323&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Arcade Styling */
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #030a06;
+            color: #ffffff;
+            user-select: none;
+            touch-action: manipulation;
+            overflow-x: hidden;
+        }
+
+        .digital-led {
+            font-family: 'VT323', monospace;
+            letter-spacing: 1px;
+            text-shadow: 0 0 6px rgba(250, 204, 21, 0.8);
+        }
+
+        .arcade-felt {
+            background: radial-gradient(circle at 50% 50%, #208e4e 0%, #116836 60%, #07401f 100%);
+            box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(16, 185, 129, 0.3);
+            border: 12px solid #0f2d1a;
+            border-radius: 28px;
+        }
+
+        /* 5-slot vertical coin stack container */
+        .slot-column {
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 2px;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
+            padding: 2px;
+            border-radius: 4px;
+            height: 62px;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+        .slot-column:hover {
+            border-color: #facc15;
+            background: rgba(250, 204, 21, 0.15);
+        }
+
+        .coin-chip {
+            height: 10px;
+            width: 100%;
+            background: linear-gradient(180deg, #fef08a 0%, #eab308 50%, #ca8a04 100%);
+            border: 1px solid #713f12;
+            border-radius: 2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            animation: dropCoin 0.15s ease-out;
+        }
+
+        @keyframes dropCoin {
+            0% { transform: translateY(-8px) scaleY(1.3); opacity: 0; }
+            100% { transform: translateY(0) scaleY(1); opacity: 1; }
+        }
+
+        /* Horse Medallion Circles */
+        .horse-badge-circle {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 3.5px solid #ffffff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 0 8px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Custom scrollbar for desktop compatibility */
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #10b981;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-2 md:p-4">
+
+    <header class="w-full max-w-7xl bg-slate-950 border-2 border-emerald-500 rounded-2xl px-4 py-2 flex flex-wrap items-center justify-between gap-2 shadow-2xl mb-2">
+        <div class="flex items-center space-x-3">
+            <span class="text-3xl animate-bounce">🐎</span>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black text-amber-400 tracking-wider">みんなでダービー</h1>
+                <p class="text-xs text-emerald-300 font-bold" id="season-title-text">第 1 / 12 レース : ジュニアカップ (芝 1600m)</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <button onclick="toggleSound()" class="px-3 py-1 bg-slate-900 border border-emerald-600 rounded-xl text-xs font-bold flex items-center space-x-1 hover:bg-slate-800">
+                <span id="snd-icon">🔊</span>
+                <span id="snd-status" class="text-slate-300">サウンド ON</span>
+            </button>
+
+            <div class="flex items-center space-x-2 bg-black px-4 py-1.5 rounded-xl border-2 border-yellow-400">
+                <span class="text-lg">🪙</span>
+                <span class="text-xs text-yellow-300 font-bold">メダル:</span>
+                <span id="credit-display" class="text-2xl font-black text-yellow-400 digital-led">500</span>
+                <span class="text-xs text-yellow-300 font-bold">枚</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full max-w-7xl flex-1 flex flex-col justify-center">
+
+        <!-- ========================================== -->
+        <!-- SCREEN 1: ARCADE BETTING TABLE MACHINE     -->
+        <!-- ========================================== -->
+        <div id="view-betting-table" class="w-full arcade-felt p-3 md:p-5 flex flex-col justify-between space-y-4">
+
+            <!-- UPPER REVERSE STATION (st.1 - Arcade Machine Opposing View) -->
+            <div class="bg-black/30 p-2 rounded-2xl border border-emerald-500/40 opacity-75 transform rotate-180 scale-95 hidden md:block">
+                <div class="text-center text-[10px] text-emerald-200 font-bold mb-1">STATION 1 (対戦プレイヤー席)</div>
+                <div class="grid grid-cols-21 gap-1 text-center items-end" id="st1-top-grid">
+                    <!-- Mirrored decorative row -->
+                </div>
+            </div>
+
+            <!-- CENTER ROW: HORSE RANK MEDALLIONS (1 to 6) -->
+            <div class="bg-black/40 border-2 border-emerald-400/60 rounded-2xl p-3 flex flex-wrap items-center justify-around gap-2 shadow-xl">
+                <!-- Horse Badges 1-6 -->
+                <div class="flex items-center justify-around w-full max-w-5xl">
+                    <!-- Badge 1 -->
+                    <div class="flex flex-col items-center">
+                        <div class="horse-badge-circle bg-slate-100 text-slate-950">
+                            <span class="text-[9px] font-black text-slate-600 uppercase">HORSE</span>
+                            <span class="text-xl font-black">1</span>
+                            <span class="text-[8px] font-bold text-slate-700">RANK</span>
+                        </div>
+                        <span class="text-[11px] font-black text-white mt-1">マジデス</span>
+                        <span class="text-[10px] text-yellow-300 font-bold" id="odds-tan-1">3.2倍</span>
+                    </div>
+
+                    <!-- Badge 2 -->
+                    <div class="flex flex-col items-center">
+                        <div class="horse-badge-circle bg-slate-900 text-white border-slate-400">
+                            <span class="text-[9px] font-black text-slate-400 uppercase">HORSE</span>
+                            <span class="text-xl font-black text-white">2</span>
+                            <span class="text-[8px] font-bold text-slate-400">RANK</span>
+                        </div>
+                        <span class="text-[11px] font-black text-white mt-1">サイレンス</span>
+                        <span class="text-[10px] text-yellow-300 font-bold" id="odds-tan-2">2.2倍</span>
+                    </div>
+
+                    <!-- Badge 3 -->
+                    <div class="flex flex-col items-center">
+                        <div class="horse-badge-circle bg-red-600 text-white">
+                            <span class="text-[9px] font-black text-red-200 uppercase">HORSE</span>
+                            <span class="text-xl font-black">3</span>
+                            <span class="text-[8px] font-bold text-red-200">RANK</span>
+                        </div>
+                        <span class="text-[11px] font-black text-white mt-1">テイオー</span>
+                        <span class="text-[10px] text-yellow-300 font-bold" id="odds-tan-3">22.8倍</span>
+                    </div>
+
+                    <!-- Badge 4 -->
+                    <div class="flex flex-col items-center">
+                        <div class="horse-badge-circle bg-blue-600 text-white">
+                            <span class="text-[9px] font-black text-blue-200 uppercase">HORSE</span>
+                            <span class="text-xl font-black">4</span>
+                            <span class="text-[8px] font-bold text-blue-200">RANK</span>
+                        </div>
+                        <span class="text-[11px] font-black text-white mt-1">ディープ</span>
+                        <span class="text-[10px] text-yellow-300 font-bold" id="odds-tan-4">5.7倍</span>
+                    </div>
+
+                    <!-- Badge 5 -->
+                    <div class="flex flex-col items-center">
+                        <div class="horse-badge-circle bg-yellow-400 text-slate-950">
+                            <span class="text-[9px] font-black text-yellow-800 uppercase">HORSE</span>
+                            <span class="text-xl font-black">5</span>
+                            <span class="text-[8px] font-bold text-yellow-800">RANK</span>
+                        </div>
+                        <span class="text-[11px] font-black text-white mt-1">ゴールドシップ</span>
+                        <span class="text-[10px] text-yellow-300 font-bold" id="odds-tan-5">5.1倍</span>
+                    </div>
+
+                    <!-- Badge 6 -->
+                    <div class="flex flex-col items-center">
+                        <div class="horse-badge-circle bg-emerald-600 text-white">
+                            <span class="text-[9px] font-black text-emerald-200 uppercase">HORSE</span>
+                            <span class="text-xl font-black">6</span>
+                            <span class="text-[8px] font-bold text-emerald-200">RANK</span>
+                        </div>
+                        <span class="text-[11px] font-black text-white mt-1">マックイーン</span>
+                        <span class="text-[10px] text-yellow-300 font-bold" id="odds-tan-6">4.1倍</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAIN BETTING MATRIX TABLE (STATION 2 - PLAYER BOARD) -->
+            <div class="bg-black/60 border-2 border-emerald-500 rounded-2xl p-3 shadow-2xl overflow-x-auto">
+                <div class="min-w-[760px] space-y-3">
+
+                    <!-- ROW 1: QUINELLA (馬連) OVAL BUTTON BADGES & LED ODDS -->
+                    <div class="grid grid-cols-15 gap-1.5 text-center" id="umaren-badges-row">
+                        <!-- 15 combinations dynamically generated -->
+                    </div>
+
+                    <!-- ROW 2: VERTICAL 5-SLOT COIN COLUMNS (馬連 STACK SLOTS) -->
+                    <div class="grid grid-cols-15 gap-1.5" id="umaren-slots-row">
+                        <!-- 15 coin slot columns -->
+                    </div>
+
+                    <div class="border-t-2 border-dashed border-emerald-600/60 my-2"></div>
+
+                    <!-- ROW 3: SINGLE BETS (単勝 1 to 6) SLOTS & ODDS -->
+                    <div class="flex items-center justify-around">
+                        <div class="text-xs font-black text-amber-400 bg-amber-950/80 px-3 py-1 rounded-lg border border-amber-500">
+                            単勝 (1着当て)
+                        </div>
+                        <div class="grid grid-cols-6 gap-3 w-full max-w-3xl" id="tansho-slots-row">
+                            <!-- 6 single bet slot columns -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTTOM ARCADE CONTROL DECK (STATION 2 DASHBOARD) -->
+            <div class="bg-slate-950 border-4 border-emerald-400 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-2xl">
+                
+                <!-- Left: Steering Wheel Widget & Carrot Indicators -->
+                <div class="flex items-center space-x-3">
+                    <!-- Wheel Graphic -->
+                    <div class="w-12 h-12 rounded-full border-4 border-slate-300 bg-blue-600 flex items-center justify-center shadow-lg relative">
+                        <div class="w-3 h-3 bg-white rounded-full"></div>
+                        <div class="absolute top-0 w-1 h-3 bg-red-500"></div>
+                    </div>
+
+                    <!-- Carrot Status -->
+                    <div class="flex space-x-1 text-base">
+                        <span>🥕</span><span>🥕</span><span>🥕</span><span>🥕</span>
+                    </div>
+
+                    <!-- Station Tag -->
+                    <span class="px-2 py-1 bg-emerald-900 border border-emerald-500 text-emerald-200 text-xs font-black rounded-lg">st.2</span>
+                </div>
+
+                <!-- Center: Horse Info Banner Ticker -->
+                <div class="flex items-center space-x-3 bg-slate-900 border-2 border-emerald-500 px-4 py-2 rounded-xl">
+                    <span id="ticker-horse-num" class="w-6 h-6 rounded-full bg-white text-slate-950 font-black text-center leading-6 text-xs">1</span>
+                    <div>
+                        <span id="ticker-horse-name" class="font-black text-amber-300 text-sm md:text-base">サブリナフェアリー</span>
+                        <div class="flex items-center space-x-2 text-[11px]">
+                            <span id="ticker-kyakushitsu" class="text-emerald-400 font-bold">にげ ★</span>
+                            <span class="text-slate-400">|</span>
+                            <span class="text-cyan-300 font-bold">調子: 絶好調</span>
+                        </div>
+                    </div>
+                    <button onclick="cycleSelectedHorse()" class="ml-2 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-lg text-xs">
+                        次馬 ➔
+                    </button>
+                </div>
+
+                <!-- Right: BET Display & Digital TIME Countdown -->
+                <div class="flex items-center space-x-4">
+                    <!-- Total BET LED Box -->
+                    <div class="bg-black border-2 border-yellow-500 px-3 py-1 rounded-xl text-center">
+                        <span class="text-[9px] text-yellow-400 block font-bold">BET</span>
+                        <span id="bet-count-led" class="text-2xl font-black text-yellow-400 digital-led">0</span>
+                    </div>
+
+                    <!-- TIME Countdown LED -->
+                    <div class="bg-black border-2 border-red-500 px-3 py-1 rounded-xl text-center">
+                        <span class="text-[9px] text-red-400 block font-bold">TIME</span>
+                        <span id="time-countdown-led" class="text-3xl font-black text-red-500 digital-led">15</span>
+                    </div>
+
+                    <!-- Manual Race Start Button -->
+                    <button id="btn-start-race" onclick="triggerRaceStart()" class="px-5 py-2.5 bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-500 text-slate-950 font-black text-sm rounded-xl shadow-lg border-2 border-yellow-200 active:scale-95 transition">
+                        レース出走 🏁
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Arcade Caution Footer Bar -->
+            <div class="bg-yellow-400/90 text-slate-950 px-3 py-1 rounded-lg text-[10px] text-center font-bold flex items-center justify-center space-x-2">
+                <span>⚠️ 注意</span>
+                <span>メダルの過剰な使用にご注意ください。画面をタッチしてコインを投入できます。</span>
+            </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 2: CURVED RACETRACK ANIMATION       -->
+        <!-- ========================================== -->
+        <div id="view-race-canvas" class="hidden w-full arcade-felt p-4 flex flex-col items-center space-y-3">
+            
+            <!-- Live Race Header Info -->
+            <div class="w-full bg-slate-950 border-2 border-emerald-400 rounded-2xl p-3 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <span class="w-3.5 h-3.5 bg-red-500 rounded-full animate-ping"></span>
+                    <span id="race-live-status" class="text-sm md:text-base font-black text-amber-300">第4コーナー通過！最後の直線勝負！</span>
+                </div>
+                <div class="bg-black px-4 py-1 rounded-xl border border-emerald-500">
+                    <span class="text-xs text-emerald-400 font-bold">ゴールまで: </span>
+                    <span id="race-distance-display" class="text-xl text-cyan-400 digital-led font-black">400m</span>
+                </div>
+            </div>
+
+            <!-- Oval Curved Canvas Viewport -->
+            <div class="relative w-full max-w-5xl rounded-2xl overflow-hidden border-4 border-slate-900 shadow-2xl bg-slate-950">
+                <canvas id="raceCanvas" width="960" height="480" class="w-full h-auto block"></canvas>
+            </div>
+
+            <!-- Live Commentary Banner -->
+            <div class="w-full bg-slate-950 border border-cyan-500/80 p-2.5 rounded-xl flex items-center space-x-3">
+                <span class="px-2 py-0.5 bg-cyan-500 text-slate-950 font-black text-xs rounded">実況</span>
+                <p id="live-commentary-text" class="text-xs md:text-sm font-bold text-slate-100 truncate">
+                    各馬一斉に第3コーナーをカーブ！先頭争いは激化しています！
+                </p>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 3: RESULT & PAYOUT ANNOUNCEMENT    -->
+        <!-- ========================================== -->
+        <div id="view-race-result" class="hidden w-full arcade-felt p-6 flex flex-col items-center space-y-4 text-center">
+            <span class="text-5xl">🏆</span>
+            <h2 id="result-race-name" class="text-2xl font-black text-amber-300">第1戦 レース結果</h2>
+
+            <!-- Result Table -->
+            <div class="w-full max-w-lg bg-black/80 rounded-2xl border border-emerald-500 p-3">
+                <table class="w-full text-xs md:text-sm text-left text-slate-200">
+                    <thead class="bg-slate-900 text-amber-400 border-b border-emerald-700">
+                        <tr>
+                            <th class="p-2 text-center">着順</th>
+                            <th class="p-2 text-center">馬番</th>
+                            <th class="p-2">競走馬名</th>
+                            <th class="p-2 text-center">脚質</th>
+                        </tr>
+                    </thead>
+                    <tbody id="result-rows" class="divide-y divide-slate-800 font-bold">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Payout Display -->
+            <div class="w-full max-w-lg bg-slate-950 p-4 rounded-2xl border-2 border-yellow-400 space-y-2">
+                <h3 class="text-sm font-bold text-amber-300">🎯 的中配当明細</h3>
+                <div id="payout-details-list" class="text-xs space-y-1 text-left">
+                    <!-- Populated dynamically -->
+                </div>
+                <div class="pt-2 border-t border-slate-800 flex items-center justify-between">
+                    <span class="font-bold text-slate-300">獲得メダル:</span>
+                    <span id="payout-total-amount" class="text-3xl font-black text-yellow-400 digital-led">+0 枚</span>
+                </div>
+            </div>
+
+            <button onclick="nextRace()" class="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 text-white font-black rounded-2xl text-base shadow-xl transition">
+                次のレースへ進む ➡️
+            </button>
+        </div>
+
+    </main>
+
+    <script>
+        /* AUDIO SYNTHESIZER (Web Audio API) */
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+
+            if (type === 'coin') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, now);
+                osc.frequency.setValueAtTime(1600, now + 0.04);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'fanfare') {
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.1);
+                    gain.gain.setValueAtTime(0.15, now + i * 0.1);
+                    gain.gain.linearRampToValueAtTime(0.01, now + i * 0.1 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + i * 0.1);
+                    osc.stop(now + i * 0.1 + 0.2);
+                });
+            } else if (type === 'win') {
+                [440, 554.37, 659.25, 880].forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.08);
+                    gain.gain.setValueAtTime(0.2, now + i * 0.08);
+                    gain.gain.linearRampToValueAtTime(0.01, now + i * 0.08 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + i * 0.08);
+                    osc.stop(now + i * 0.08 + 0.25);
+                });
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('snd-icon').textContent = soundEnabled ? '🔊' : '🔇';
+            document.getElementById('snd-status').textContent = soundEnabled ? 'サウンド ON' : 'ミュート';
+        }
+
+        /* GAME STATE & CONFIGURATION */
+        let medals = 500;
+        let currentRaceIndex = 0;
+        let currentBetTotal = 0;
+        let countdown = 15;
+        let timerInterval = null;
+        let raceInterval = null;
+
+        const UMAREN_PAIRS = [
+            "1-2", "1-3", "1-4", "1-5", "1-6",
+            "2-3", "2-4", "2-5", "2-6",
+            "3-4", "3-5", "3-6",
+            "4-5", "4-6",
+            "5-6"
+        ];
+
+        const HORSE_PROFILES = [
+            { id: 1, name: "サブリナフェアリー", color: "#f8fafc", textColor: "#020617", kyakushitsu: "にげ", speed: 90 },
+            { id: 2, name: "サイレンススズカ", color: "#1e293b", textColor: "#ffffff", kyakushitsu: "にげ", speed: 92 },
+            { id: 3, name: "トウカイテイオー", color: "#dc2626", textColor: "#ffffff", kyakushitsu: "せんこう", speed: 88 },
+            { id: 4, name: "ディープインパクト", color: "#2563eb", textColor: "#ffffff", kyakushitsu: "さし", speed: 95 },
+            { id: 5, name: "ゴールドシップ", color: "#facc15", textColor: "#020617", kyakushitsu: "おいこみ", speed: 89 },
+            { id: 6, name: "メジロマックイーン", color: "#059669", textColor: "#ffffff", kyakushitsu: "せんこう", speed: 87 }
+        ];
+
+        let horseOdds = {
+            tansho: { 1: 3.2, 2: 2.2, 3: 22.8, 4: 5.7, 5: 5.1, 6: 4.1 },
+            umaren: {
+                "1-2": 4.9, "1-3": 9.3, "1-4": 6.5, "1-5": 12.7, "1-6": 33.7,
+                "2-3": 11.9, "2-4": 7.7, "2-5": 10.4, "2-6": 19.6,
+                "3-4": 13.0, "3-5": 22.5, "3-6": 57.6,
+                "4-5": 14.5, "4-6": 30.1,
+                "5-6": 48.0
+            }
+        };
+
+        let userBets = {
+            tansho: { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 },
+            umaren: {}
+        };
+
+        UMAREN_PAIRS.forEach(pair => userBets.umaren[pair] = 0);
+
+        let selectedHorseIndex = 0;
+
+        /* INITIALIZATION & BETTING BOARD GENERATION */
+        function initBettingBoard() {
+            // Populate Umaren Oval Badges Row
+            const umarenBadgeRow = document.getElementById('umaren-badges-row');
+            const umarenSlotsRow = document.getElementById('umaren-slots-row');
+            umarenBadgeRow.innerHTML = '';
+            umarenSlotsRow.innerHTML = '';
+
+            UMAREN_PAIRS.forEach(pair => {
+                let badgeDiv = document.createElement('div');
+                badgeDiv.className = "flex flex-col items-center bg-slate-900 p-1 rounded-xl border border-purple-500/50 shadow";
+                badgeDiv.innerHTML = `
+                    <span class="px-2 py-0.5 bg-purple-600 text-white font-black text-[10px] rounded-full">${pair}</span>
+                    <span class="text-yellow-400 font-black text-xs digital-led mt-0.5" id="odds-umaren-${pair}">${horseOdds.umaren[pair]}</span>
+                `;
+                umarenBadgeRow.appendChild(badgeDiv);
+
+                let slotCol = document.createElement('div');
+                slotCol.className = "slot-column";
+                slotCol.id = `slot-umaren-${pair}`;
+                slotCol.onclick = () => placeBet('umaren', pair);
+                umarenSlotsRow.appendChild(slotCol);
+            });
+
+            // Populate Single Bet Slots
+            const tanshoSlotsRow = document.getElementById('tansho-slots-row');
+            tanshoSlotsRow.innerHTML = '';
+
+            for (let i = 1; i <= 6; i++) {
+                let slotCol = document.createElement('div');
+                slotCol.className = "slot-column";
+                slotCol.id = `slot-tansho-${i}`;
+                slotCol.onclick = () => placeBet('tansho', i);
+                tanshoSlotsRow.appendChild(slotCol);
+            }
+
+            updateDisplays();
+            startCountdown();
+        }
+
+        function placeBet(type, key) {
+            if (medals <= 0) {
+                alert("メダルがありません！");
+                return;
+            }
+
+            let currentSlotCount = (type === 'tansho') ? userBets.tansho[key] : userBets.umaren[key];
+            if (currentSlotCount >= 5) {
+                return; // Max 5 coins per stack slot
+            }
+
+            playSound('coin');
+            medals--;
+            currentBetTotal++;
+
+            if (type === 'tansho') {
+                userBets.tansho[key]++;
+                renderCoinStack(`slot-tansho-${key}`, userBets.tansho[key]);
+            } else {
+                userBets.umaren[key]++;
+                renderCoinStack(`slot-umaren-${key}`, userBets.umaren[key]);
+            }
+
+            updateDisplays();
+        }
+
+        function renderCoinStack(slotId, count) {
+            const container = document.getElementById(slotId);
+            container.innerHTML = '';
+            for (let i = 0; i < count; i++) {
+                let chip = document.createElement('div');
+                chip.className = "coin-chip";
+                container.appendChild(chip);
+            }
+        }
+
+        function updateDisplays() {
+            document.getElementById('credit-display').textContent = medals;
+            document.getElementById('bet-count-led').textContent = currentBetTotal;
+        }
+
+        function cycleSelectedHorse() {
+            playSound('coin');
+            selectedHorseIndex = (selectedHorseIndex + 1) % 6;
+            let horse = HORSE_PROFILES[selectedHorseIndex];
+            document.getElementById('ticker-horse-num').textContent = horse.id;
+            document.getElementById('ticker-horse-name').textContent = horse.name;
+            document.getElementById('ticker-kyakushitsu').textContent = `${horse.kyakushitsu} ★`;
+        }
+
+        function startCountdown() {
+            countdown = 15;
+            document.getElementById('time-countdown-led').textContent = countdown;
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                countdown--;
+                document.getElementById('time-countdown-led').textContent = countdown;
+                if (countdown <= 0) {
+                    clearInterval(timerInterval);
+                    triggerRaceStart();
+                }
+            }, 1000);
+        }
+
+        /* CURVED OVAL RACETRACK SIMULATOR (HTML5 CANVAS) */
+        const canvas = document.getElementById('raceCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let raceHorses = [];
+        let raceProgress = 0;
+        let finishRankings = [];
+
+        function triggerRaceStart() {
+            if (timerInterval) clearInterval(timerInterval);
+            playSound('fanfare');
+
+            document.getElementById('view-betting-table').classList.add('hidden');
+            document.getElementById('view-race-canvas').classList.remove('hidden');
+
+            // Initialize 6 horses on curved oval path
+            raceHorses = HORSE_PROFILES.map((p, idx) => ({
+                ...p,
+                progress: 0, // 0.0 to 1.0 around the oval
+                lane: idx,   // 0 to 5 outer to inner
+                speed: (p.speed / 100) * 0.0035 + (Math.random() * 0.0005),
+                rank: 0
+            }));
+
+            raceProgress = 0;
+            finishRankings = [];
+
+            if (raceInterval) clearInterval(raceInterval);
+
+            // 60 FPS Canvas Animation Loop
+            raceInterval = setInterval(() => {
+                updateHorsePositions();
+                drawCurvedRacetrack();
+
+                let distanceLeft = Math.max(0, Math.floor((1.0 - getLeadingProgress()) * 1200));
+                document.getElementById('race-distance-display').textContent = `${distanceLeft}m`;
+
+                if (distanceLeft <= 300) {
+                    document.getElementById('live-commentary-text').textContent = "最後の直線コース！外から一気に追い上げてくる！";
+                }
+
+                if (finishRankings.length >= 6) {
+                    clearInterval(raceInterval);
+                    setTimeout(showResultsScreen, 1200);
+                }
+            }, 1000 / 30);
+        }
+
+        function getLeadingProgress() {
+            return Math.max(...raceHorses.map(h => h.progress));
+        }
+
+        function updateHorsePositions() {
+            raceHorses.forEach(h => {
+                if (h.progress < 1.0) {
+                    // Running style speed adjustments during corner vs stretch
+                    let isCorner = (h.progress > 0.25 && h.progress < 0.5) || (h.progress > 0.75);
+                    let boost = (h.kyakushitsu === 'おいこみ' && h.progress > 0.7) ? 0.001 : 0;
+                    
+                    h.progress += h.speed + boost + (Math.random() * 0.0003 - 0.00015);
+                    
+                    if (h.progress >= 1.0) {
+                        h.progress = 1.0;
+                        if (!finishRankings.includes(h)) {
+                            finishRankings.push(h);
+                            h.rank = finishRankings.length;
+                        }
+                    }
+                }
+            });
+        }
+
+        /* DRAW OVAL / CURVED PERSPECTIVE RACETRACK */
+        function drawCurvedRacetrack() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Grass Background
+            ctx.fillStyle = "#116836";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Oval Track Parameters
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2 + 20;
+            const radiusX = 380;
+            const radiusY = 160;
+
+            // Outer Turf Track Oval
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+            ctx.fillStyle = "#15803d";
+            ctx.fill();
+            ctx.lineWidth = 12;
+            ctx.strokeStyle = "#ffffff";
+            ctx.stroke();
+
+            // Inner Dirt/Rail Oval
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX - 100, radiusY - 50, 0, 0, Math.PI * 2);
+            ctx.fillStyle = "#166534";
+            ctx.fill();
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = "#ffffff";
+            ctx.stroke();
+
+            // Goal Finish Line (On Home Stretch Bottom)
+            let goalX = centerX + 100;
+            let goalY1 = centerY + radiusY - 50;
+            let goalY2 = centerY + radiusY + 15;
+            ctx.strokeStyle = "#facc15";
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(goalX, goalY1);
+            ctx.lineTo(goalX, goalY2);
+            ctx.stroke();
+
+            // Draw Horses along Oval Ellipse
+            raceHorses.forEach(h => {
+                // Angle along oval (starts at bottom right, moves counter-clockwise around turns)
+                let angle = (h.progress * Math.PI * 2) + Math.PI / 2;
+                
+                let laneOffset = (h.lane - 2.5) * 8;
+                let rx = radiusX + laneOffset;
+                let ry = radiusY + (laneOffset * 0.5);
+
+                let x = centerX + Math.cos(angle) * rx;
+                let y = centerY + Math.sin(angle) * ry;
+
+                // Dust effect
+                ctx.fillStyle = "rgba(253, 224, 71, 0.3)";
+                ctx.beginPath();
+                ctx.arc(x - Math.cos(angle) * 12, y - Math.sin(angle) * 12, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Horse Body Icon
+                ctx.fillStyle = h.color;
+                ctx.beginPath();
+                ctx.arc(x, y, 14, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = "#ffffff";
+                ctx.stroke();
+
+                // Horse Number Label
+                ctx.fillStyle = h.textColor;
+                ctx.font = "bold 11px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(h.id, x, y);
+
+                // Horse Name Tag
+                ctx.fillStyle = "rgba(2, 6, 23, 0.85)";
+                ctx.fillRect(x - 28, y - 26, 56, 14);
+                ctx.fillStyle = "#fef08a";
+                ctx.font = "bold 9px sans-serif";
+                ctx.fillText(h.name.substring(0, 4), x, y - 19);
+            });
+        }
+
+        /* RESULT & PAYOUT CALCULATION */
+        function showResultsScreen() {
+            document.getElementById('view-race-canvas').classList.add('hidden');
+            document.getElementById('view-race-result').classList.remove('hidden');
+
+            const tbody = document.getElementById('result-rows');
+            tbody.innerHTML = '';
+
+            finishRankings.forEach((h, idx) => {
+                let tr = document.createElement('tr');
+                tr.className = idx === 0 ? "bg-amber-950/60 text-amber-300 font-bold" : "";
+                tr.innerHTML = `
+                    <td class="p-2 text-center font-black">${idx + 1}着</td>
+                    <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-bold" style="background:${h.color}; color:${h.textColor}">${h.id}</span></td>
+                    <td class="p-2 font-bold">${h.name}</td>
+                    <td class="p-2 text-center text-xs text-slate-400">${h.kyakushitsu}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const h1 = finishRankings[0];
+            const h2 = finishRankings[1];
+            let totalPayout = 0;
+            let listHtml = [];
+
+            // Single bet winnings
+            if (userBets.tansho[h1.id] > 0) {
+                let payout = Math.floor(userBets.tansho[h1.id] * horseOdds.tansho[h1.id]);
+                totalPayout += payout;
+                listHtml.push(`<p class="text-emerald-400 font-bold">🎉 【単勝】 ${h1.name} : ${userBets.tansho[h1.id]}枚 ➔ <span class="text-yellow-300">${payout}枚</span></p>`);
+            }
+
+            // Quinella winnings
+            let pairKey = `${Math.min(h1.id, h2.id)}-${Math.max(h1.id, h2.id)}`;
+            if (userBets.umaren[pairKey] > 0) {
+                let payout = Math.floor(userBets.umaren[pairKey] * horseOdds.umaren[pairKey]);
+                totalPayout += payout;
+                listHtml.push(`<p class="text-emerald-400 font-bold">🎯 【馬連】 ${pairKey} : ${userBets.umaren[pairKey]}枚 ➔ <span class="text-yellow-300">${payout}枚</span></p>`);
+            }
+
+            const payoutList = document.getElementById('payout-details-list');
+            if (listHtml.length > 0) {
+                playSound('win');
+                payoutList.innerHTML = listHtml.join('');
+            } else {
+                payoutList.innerHTML = `<p class="text-slate-400 font-bold">残念！的中しませんでした。</p>`;
+            }
+
+            medals += totalPayout;
+            document.getElementById('payout-total-amount').textContent = `+${totalPayout} 枚`;
+            updateDisplays();
+        }
+
+        function nextRace() {
+            playSound('coin');
+            currentRaceIndex = (currentRaceIndex + 1) % 12;
+            currentBetTotal = 0;
+
+            // Reset bets
+            for (let i = 1; i <= 6; i++) userBets.tansho[i] = 0;
+            UMAREN_PAIRS.forEach(pair => userBets.umaren[pair] = 0);
+
+            document.getElementById('view-race-result').classList.add('hidden');
+            document.getElementById('view-betting-table').classList.remove('hidden');
+
+            document.getElementById('season-title-text').textContent = `第 ${currentRaceIndex + 1} / 12 レース : ダービーカップ (芝 1600m)`;
+
+            initBettingBoard();
+        }
+
+        window.onload = function() {
+            initBettingBoard();
+        };
+    </script>
+</body>
+</html>
